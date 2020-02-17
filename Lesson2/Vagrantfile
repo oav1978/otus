@@ -1,0 +1,128 @@
+Vagrant.configure("2") do |config|
+ config.vm.define "centos" do |subconfig|    
+  subconfig.vm.box = "centos/7"
+  subconfig.vm.hostname="centos"    
+  subconfig.vm.network :private_network, ip: "192.168.55.11"    
+  subconfig.vm.provider "virtualbox" do |vb|      
+    vb.memory = "256"      
+    vb.cpus = "1"    
+    unless File.exist?('./sata1.vdi')
+      vb.customize ['createhd', '--filename', './sata1.vdi', '--size', 500 * 1024]
+    end  
+    vb.customize ["storagectl", :id, "--name", "SATA", "--add", "sata" ]
+    vb.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 1, '--device', 0, '--type', 'hdd', '--medium',  './sata1.vdi']
+  end
+  subconfig.vm.provision "shell", inline: <<-SHELL
+              useradd otus
+              useradd otus2
+              useradd otus3
+              cp -r /home/vagrant/.ssh /home/otus/.ssh
+              chown otus:otus -R /home/otus/.ssh    
+	      
+		echo 'polkit.addRule(function(action, subject) {' >> /etc/polkit-1/rules.d/10-udisk2.rules	          
+	      	echo 'if (action.id.match("org.freedesktop.udisks2.filesystem-mount-system") && subject.isInGroup("otus")) {' >> /etc/polkit-1/rules.d/10-udisk2.rules
+	      	echo 'return polkit.Result.YES;' >> /etc/polkit-1/rules.d/10-udisk2.rules	
+              	echo '}' >> /etc/polkit-1/rules.d/10-udisk2.rules
+	      	echo '});' >> /etc/polkit-1/rules.d/10-udisk2.rules
+		echo 'account required pam_time.so' >> /etc/pam.d/sshd
+		echo 'sshd;*;otus2;!Al0000-2400' >> /etc/security/time.conf
+		sed -i 's/.*\/usr\/libexec\/openssh\/sftp-server/#\0/' /etc/ssh/sshd_config
+		
+		echo 'Subsystem sftp internal-sftp -f AUTH -l VERBOSE' >> /etc/ssh/sshd_config
+		echo 'Match user otus3' >> /etc/ssh/sshd_config
+  		echo 'ChrootDirectory %h' >> /etc/ssh/sshd_config
+  		echo 'ForceCommand internal-sftp' >> /etc/ssh/sshd_config
+  		echo 'AllowTcpForwarding no' >> /etc/ssh/sshd_config
+		systemctl restart sshd
+
+		          
+          SHELL
+ end
+
+ config.vm.define "ubuntu" do |subconfig|
+  subconfig.vm.box = "ubuntu/bionic64"
+  subconfig.vm.hostname="ubuntu"
+  subconfig.vm.network :private_network, ip: "192.168.55.12"
+  subconfig.vm.provider "virtualbox" do |vb|
+    vb.memory = "256"
+    vb.cpus = "1"
+  end
+
+  subconfig.vm.provision "shell", inline: <<-SHELL
+		echo '#include <tunables/global>' >> /etc/apparmor.d/usr.sbin.nginx
+		echo 'profile docker-nginx flags=(attach_disconnected,mediate_deleted) {' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo '#include <abstractions/base>' >> /etc/apparmor.d/usr.sbin.nginx
+		echo 'network inet tcp,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'network inet udp,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'network inet icmp,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo 'deny network raw,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo 'deny network packet,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo 'file,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'umount,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo 'deny /bin/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /boot/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /dev/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /etc/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /home/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /lib/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /lib64/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /media/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /mnt/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /opt/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /proc/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /root/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /sbin/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /srv/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /tmp/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /sys/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /usr/** wl,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo 'audit /** w,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo '  /var/run/nginx.pid w,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo '  /usr/sbin/nginx ix,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo '  deny /bin/dash mrwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /bin/sh mrwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /usr/bin/top mrwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'capability chown,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'capability dac_override,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'capability setuid,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'capability setgid,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'capability net_bind_service,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo '  deny @{PROC}/* w,   # deny write for all files directly in /proc (not in a subdir)' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo '# deny write to files not in /proc/<number>/** or /proc/sys/**' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny @{PROC}/{[^1-9],[^1-9][^0-9],[^1-9s][^0-9y][^0-9s],[^1-9][^0-9][^0-9][^0-9]*}/** w,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny @{PROC}/sys/[^k]** w,  # deny /proc/sys except /proc/sys/k* (effectively /proc/sys/kernel)' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny @{PROC}/sys/kernel/{?,??,[^s][^h][^m]**} w,  # deny everything except shm* in /proc/sys/kernel/' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny @{PROC}/sysrq-trigger rwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny @{PROC}/mem rwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny @{PROC}/kmem rwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny @{PROC}/kcore rwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo '  deny mount,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo '  deny /sys/[^f]*/** wklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /sys/f[^s]*/** wklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /sys/fs/[^c]*/** wklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /sys/fs/c[^g]*/** wklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /sys/fs/cg[^r]*/** wklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /sys/firmware/** rwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+  		echo 'deny /sys/kernel/security/** rwklx,' >> /etc/apparmor.d/usr.sbin.nginx
+		echo '}' >> /etc/apparmor.d/usr.sbin.nginx
+		apt-get update
+		apt-get install -y apparmor-utils
+		aa-enforce /etc/apparmor.d/usr.sbin.nginx
+	SHELL
+	
+  end
+
+#config.vm.define "kali" do |subconfig|
+#  subconfig.vm.box = "offensive-security/kali-linux"
+#  config.vm.box_version = "2019.1.0"
+#  subconfig.vm.hostname="kali"
+#  subconfig.vm.network :private_network, ip: "192.168.55.13"
+#  subconfig.vm.provider "virtualbox" do |vb|
+#    vb.memory = "256"
+#    vb.cpus = "1"
+#  end
+# end
+
+end
+
+
