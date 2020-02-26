@@ -1,0 +1,27 @@
+1. ѕровер€ем возможность монтировани€ дисков дл€ пользовател€ otus
+	vagrant ssh centos
+	sudo su -
+	mkfs.ext4 /dev/sdb
+	подтверждаем
+	sudo su - otus
+	mkdir /home/otus/sdb
+	udisksctl mount -b /dev/sdb 
+	”беждаемс€ что успешно примонтировано
+
+	ѕровер€ем другого юзера
+	exit
+	udisksctl unmount -b /dev/sdb 
+	sudo su - otus2
+	udisksctl mount -b /dev/sdb 
+	”беждаемс€ что требуетс€ повышение прав
+2.      sudo su -
+	«ададим пароли дл€ пользовател€ otus и otus2
+	passwd otus
+	passwd otus2
+	ƒалее с хоста проверим коннект к машине по ssh  под пользователем otus и otus2. ”бедимс€ что otus2 зайти не может
+	ssh otus@localhost
+	ssh otus2@localhost
+3.      sudo su -
+	passwd otus3
+	ssh otus3@localhost
+

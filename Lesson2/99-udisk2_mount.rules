@@ -1,0 +1,14 @@
+polkit.addRule(function(action, subject) {
+	if (action.id == "org.freedesktop.udisks2.filesystem-mount-system" && subject.isInGroup("xgrp")) {
+		return polkit.Result.YES;
+	};
+	if (action.id == "org.freedesktop.udisks2.filesystem-mount-other-seat" && subject.isInGroup("xgrp")) {
+		return polkit.Result.YES;
+	};
+        if (action.id == "org.freedesktop.udisks2.eject-media-other-seat" && subject.isInGroup("xgrp")) {
+        	return polkit.Result.YES;
+        };
+        if (action.id == "org.freedesktop.udisks2.power-off-drive-other-seat" && subject.isInGroup("xgrp")) {
+        	return polkit.Result.YES;
+        };
+});
