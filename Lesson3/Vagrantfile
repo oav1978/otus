@@ -1,0 +1,34 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+home = ENV['HOME']
+
+MACHINES = {
+	:ubuntu_host => {
+		:box_name => "jamesthinkbox/ubuntu-16.04-desktop-amd64",
+		:ip_addr => '192.168.1.21',
+		:hname => 'ubuntu',
+		:memory => 1024
+	},
+	:kalilinux_host => {
+		:box_name => "kalilinux/rolling",
+		:ip_addr => '192.168.1.22',
+		:hname => 'kali-host',
+		:memory => 2048
+	}
+}
+
+Vagrant.configure("2") do |config|
+	MACHINES.each do |boxname, boxconfig|
+		config.vm.define boxname do |box|
+			box.vm.box = boxconfig[:box_name]
+			box.vm.host_name=boxconfig[:hname]
+			box.vm.network "public_network", ip: boxconfig[:ip_addr]			
+			box.vm.provider :virtualbox do |vb|
+				vb.customize ["modifyvm",:id,"--memory",boxconfig[:memory]]
+				vb.cpus =2
+				vb.gui=false
+			end
+		end
+	end
+end

